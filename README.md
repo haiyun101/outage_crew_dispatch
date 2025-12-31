@@ -41,6 +41,8 @@ power-grid-rl/
 ├── train.py                     # CLI entry point for training/testing
 ├── requirements.txt             # Python dependencies
 └── README.md                    # Project documentation
+```
+
 
 ## 🛠️ Installation
 
@@ -70,7 +72,7 @@ To quickly verify the environment and see the agent in action during the 2022 Ch
 
 ```bash
 python train.py --test    
-
+```
 * **Duration:** ~1-2 minutes.
 * **Output:** Trains for a short period and saves a checkpoint ending in `_test.zip`.
 
@@ -79,7 +81,7 @@ To train the PPO agent on the full dataset (2022-2023) for 500,000 timesteps:
 
 ```bash
 python train.py
-
+```
 * **Duration:** ~1-2 hours (depending on CPU).
 * **Output:** Saves the trained model as ppo_crew_dispatch_full.zip.
 
@@ -88,7 +90,7 @@ You can specify the number of training steps via the command line:
 
 ```bash
 python train.py --steps 100000
-
+```
 ## 📊 Data & Large Files
 
 This project utilizes three primary datasets:
@@ -117,15 +119,16 @@ The agent observes a combined state vector:
 $$R_t = - \sum (\text{Outage Duration} \times \text{Population Density}) - \text{Travel Cost}$$
 The agent is penalized heavily for leaving high-density areas without power.
 
-``## 📈 Results
+<!--## 📈 Results
 
-*(Optional: Add a screenshot of your Reward Curve or a table comparing Baseline vs. PPO performance here)*``
+*(Optional: Add a screenshot of your Reward Curve or a table comparing Baseline vs. PPO performance here)*
+-->
 
 ## 🤝 Contact
 
 * **Author:** Haiyun Huang
-* **Email:** [Your Email]
-* **LinkedIn:** [Your LinkedIn Profile Link]
+* **Email:** haiyun.huang@tufts.edu
+* **LinkedIn:** https://www.linkedin.com/in/haiyun-jasmine-huang/
 
 ---
 *This project was developed as part of the CS138 Reinforcement Learning Course.*
