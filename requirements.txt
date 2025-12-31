@@ -1,0 +1,7 @@
+pandas>=1.5.0
+numpy>=1.21.0
+matplotlib>=3.5.0
+gymnasium>=0.28.1
+stable-baselines3>=2.0.0
+haversine>=2.8.0
+torch>=2.0.0

@@ -1,0 +1,13 @@
+# 1. 屏蔽 data 文件夹下的所有 CSV 文件 (以防万一)
+data/*.csv
+
+# 2. 【白名单】但是，允许上传这两个必需的小文件 (用 ! 号表示“不忽略”)
+!data/outage_western_100_cleaned.csv
+!data/western_100_spatial_features.csv
+
+# 3. 屏蔽其他常见的垃圾文件
+__pycache__/
+*.pyc
+.ipynb_checkpoints
+*.zip
+.DS_Store
