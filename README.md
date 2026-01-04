@@ -48,8 +48,8 @@ power-grid-rl/
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/your-username/power-grid-rl.git](https://github.com/your-username/outage_crew_dispatch.git)
-    cd power-grid-rl
+    git clone [https://github.com/your-username/power-grid-rl.git](https://github.com/haiyun101/outage_crew_dispatch.git)
+    cd outage_crew_dispatch
     ```
 
 2.  **Create a virtual environment (Recommended):**
