@@ -26,3 +26,11 @@ TEST_END_DATE = "2022-12-26"
 # --- Hyperparameters ---
 CREWS_PER_STATION = 6  # Total agents = 3 stations * 6 crews = 18
 TOTAL_TIMESTEPS = 500_000
+
+# 假设：让一个维修队在外面待命 15分钟 的成本 (工资+损耗)
+# 等同于 让 5 个用户停电 15分钟 的痛苦
+# 这个值不能太高，否则 Agent 会为了省工资而拒绝修电
+LABOR_COST_PER_STEP = 5.0 
+
+# 之前的移动成本
+TRAVEL_COST_PER_KM = 1.0

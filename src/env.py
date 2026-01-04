@@ -5,6 +5,7 @@ import random
 from datetime import timedelta
 from collections import defaultdict
 from src.utils import calculate_distance
+from src.config import TRAVEL_COST_PER_KM, LABOR_COST_PER_STEP
 
 class Crew:
     """
@@ -35,9 +36,8 @@ class Crew:
     def reposition(self, destination, current_time, travel_distance_km):
         # Assume average speed of 60 km/h
         travel_time_hours = travel_distance_km / 60.0
-        self.status = "idle" # Considered idle while repositioning for simplicity in this version
+        self.status = "idle" 
         self.location = destination
-        # In a more complex model, we would lock them as 'traveling'
 
     def get_current_position(self, current_time):
         return self.location
@@ -50,6 +50,7 @@ def assign_best_outage(crew, outages, current_time, weights=None):
         return None
         
     if weights is None:
+        # Default heuristic weights
         weights = {"travel": 0.5, "wait": 0.3, "pop": 0.2}
 
     best_outage = None
@@ -133,24 +134,78 @@ class CrewDispatchEnv(gym.Env):
         return self._get_obs(), {}
 
     def step(self, action):
-        # 1. Apply Agent Actions (Strategic Repositioning)
+        # 1. Calculate Agent Movement Costs (Travel Cost)
+        # We calculate this BEFORE applying the action to know how much distance they intend to move.
+        move_distance_km = 0.0
+        if action is not None:
+            for crew, dest_idx in zip(self.crews, action):
+                # If crew is idle and ordered to move to a town (dest_idx > 0)
+                if crew.status == "idle" and dest_idx > 0:
+                    town_name = list(self.towns.keys())[dest_idx - 1]
+                    dest_loc = self.towns[town_name]
+                    # Calculate distance from current location to destination
+                    dist = calculate_distance(crew.location, dest_loc)
+                    move_distance_km += dist
+
+        # 2. Apply Agent Actions (Physical Repositioning)
         self._apply_agent_action(action)
 
         total_reward = 0.0
+        total_labor_cost = 0.0
+        total_outage_penalty = 0.0
         
-        # 2. Advance Simulation (4 steps of 15 mins = 1 hour)
+        # 3. Advance Simulation (4 steps of 15 mins = 1 hour)
         for _ in range(4):
             self.time += timedelta(minutes=15)
-            self._advance_simulation()
             
-            reward, _ = self._calculate_reward()
-            total_reward += reward
+            # --- A. Advance Physics & Auto-Dispatch ---
+            num_resolved_this_step = self._advance_simulation()
+            
+            # --- B. Calculate Outage & Repair Reward ---
+            step_reward, step_outage_penalty = self._calculate_base_reward(num_resolved_this_step)
+            total_reward += step_reward
+            total_outage_penalty += step_outage_penalty
+            
+            # --- C. Calculate Labor Cost (Shift Pay) ---
+            # Crews not at a station cost money to maintain in the field.
+            step_labor_cost = 0.0
+            for crew in self.crews:
+                is_at_station = False
+                for s_coords in self.stations.values():
+                    # Check if crew is near any station (within 0.5km tolerance)
+                    if calculate_distance(crew.location, s_coords) < 0.5:
+                        is_at_station = True
+                        break
+                
+                if not is_at_station:
+                    step_labor_cost += LABOR_COST_PER_STEP
+            
+            total_labor_cost += step_labor_cost
+            
             self.prev_time = self.time
+
+        # 4. Final Reward Assembly
+        # Start with Base Reward (Outage Penalties + Fix Bonuses)
+        # Subtract Travel Cost (Fuel/Wear)
+        # Subtract Labor Cost (Overtime/Field Pay)
+        
+        travel_penalty = move_distance_km * TRAVEL_COST_PER_KM
+        
+        total_reward -= travel_penalty
+        total_reward -= total_labor_cost
 
         terminated = self.time >= self.end_time
         truncated = False
         
-        return self._get_obs(), total_reward, terminated, truncated, {}
+        # Info for TensorBoard tracking
+        info = {
+            "travel_penalty": travel_penalty,
+            "labor_penalty": total_labor_cost,
+            "outage_penalty": total_outage_penalty,
+            "total_cost": -total_reward # approximate cost view
+        }
+        
+        return self._get_obs(), total_reward, terminated, truncated, info
 
     def _init_crews(self, per_station):
         self.crews = []
@@ -174,6 +229,10 @@ class CrewDispatchEnv(gym.Env):
         ], key=lambda o: o["time_reported"])
 
     def _advance_simulation(self):
+        """
+        Advances the simulation physics. 
+        Returns: The integer number of outages that were resolved in this step.
+        """
         # Add new outages
         new_outages = [o for o in self.schedule if o["time_reported"] <= self.time]
         self.schedule = [o for o in self.schedule if o["time_reported"] > self.time]
@@ -190,8 +249,11 @@ class CrewDispatchEnv(gym.Env):
                 outage["status"] = "resolved"
                 resolved.append(outage)
         
+        # Remove resolved outages from active list
         for r in resolved:
             self.current_outages.remove(r)
+            
+        num_resolved = len(resolved)
 
         # Auto-dispatch logic for available crews
         available_crews = [c for c in self.crews if c.status == "idle"]
@@ -213,6 +275,8 @@ class CrewDispatchEnv(gym.Env):
                 best_outage["resolve_time"] = crew.available_at
                 
                 pending_outages.remove(best_outage)
+                
+        return num_resolved
 
     def _apply_agent_action(self, action):
         if action is None:
@@ -248,16 +312,29 @@ class CrewDispatchEnv(gym.Env):
             "crew_states": np.array(crew_states, dtype=np.float32)
         }
 
-    def _calculate_reward(self):
+    def _calculate_base_reward(self, n_resolved=0):
+        """
+        Calculates the Operational Reward (Outages & Repairs only).
+        Costs (Travel & Labor) are handled in step().
+        """
         reward = 0.0
         outage_penalty = 0.0
         
+        # 1. The Stick: Penalty for active outages (Pop Density * Time)
+        # Factor = 1.0 (Strong Penalty to match real CMO impact)
+        PENALTY_FACTOR = 1.0
+        
         for o in self.current_outages:
             if o["status"] in ["pending", "assigned"]:
-                penalty = o["pop_density"] * 0.01
+                penalty = o["pop_density"] * PENALTY_FACTOR
                 outage_penalty += penalty
                 reward -= penalty
-                
-        # Small penalty for idle crews not at home base could be added here
         
-        return reward, {"outage_penalty": outage_penalty}
+        # 2. The Carrot: Big Bonus for finishing repairs
+        # Must be large enough to offset Travel + Labor costs
+        COMPLETION_BONUS = 100.0
+        
+        if n_resolved > 0:
+            reward += (n_resolved * COMPLETION_BONUS)
+        
+        return reward, outage_penalty
