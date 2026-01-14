@@ -1,6 +1,6 @@
 # ⚡ Reinforcement Learning for Power Grid Crew Dispatch
 
-![Project Demo](crew_dispatch_with_stations.gif)
+![Project Demo](simulation_final.gif)
 *Figure 1: Real-time visualization of the RL agent dispatching repair crews during the "Christmas Storm" of December 2022. Green squares are depots, blue dots are idle crews, orange dots are active crews, and red crosses are power outages.*
 
 ## 📖 Project Overview
